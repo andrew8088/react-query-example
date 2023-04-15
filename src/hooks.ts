@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, QueryClient, useQueryClient } from "@tanstack/react-query";
 
-type Widget = { id: `w${number}` }
-type Gadget = { id: `g${number}` }
+type Widget = { id: string; } // `w${number}` }
+type Gadget = { id: string; } // `g${number}` }
 
 function isWidgetId(id: string): id is Widget['id'] {
   return id.startsWith('w');
@@ -39,40 +39,38 @@ export function useGetGadgets() {
   });
 }
 
-export function usePostWidget() {
-  const queryClient = useQueryClient();
-  return useMutation(async function(newWidget: Widget) {
-    const widgets = queryClient.getQueryData<Widget[]>(WIDGET_KEY);
+function findById<T extends { id: string }>(collection: T[] | undefined, id: string): T | undefined {
+  if (collection) {
+    const item = collection.find(item => item.id === id);
+    if (item) {
+      return item;
+    }
+  }
+}
 
-    if (widgets) {
-      const widget = widgets.find(w => w.id === newWidget.id);
-      if (widget) {
-        console.warn('returning existing widget');
-        return widget;
-      }
+function findOrCreate<T extends { id: string }>(queryClient: ReturnType<typeof useQueryClient>, queryKey: string[]) {
+  return async function(newT: T) {
+    const item = findById(queryClient.getQueryData<T[]>(queryKey), newT.id);
+
+    const label = queryKey[0].slice(0, -1);
+    if (item) {
+      console.warn(`returning existing ${label}`);
+      return item;
     }
 
-    console.warn('POSTing new widget to server');
-    return newWidget;
-  });
+    console.warn(`POSTing new ${label} to server`);
+    return newT;
+  }
+}
+
+export function usePostWidget() {
+  const queryClient = useQueryClient();
+  return useMutation(findOrCreate(queryClient, WIDGET_KEY));
 }
 
 export function usePostGadget() {
   const queryClient = useQueryClient();
-  return useMutation(async function(newGadget: Gadget) {
-    const gadgets = queryClient.getQueryData<Gadget[]>(GADGET_KEY);
-
-    if (gadgets) {
-      const gadget = gadgets.find(w => w.id === newGadget.id);
-      if (gadget) {
-        console.warn('returning existing gadget');
-        return gadget;
-      }
-    }
-
-    console.warn('POSTing new gadget to server');
-    return newGadget;
-  });
+  return useMutation(findOrCreate(queryClient, GADGET_KEY));
 }
 
 type Product = Widget | Gadget;
