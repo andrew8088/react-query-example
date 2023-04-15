@@ -1,24 +1,20 @@
-import React from 'react';
-import logo from './logo.svg';
 import './App.css';
+import { useGetGadgets, useGetOrCreateProduct, useGetWidgets } from './hooks';
 
 function App() {
+  useGetGadgets();
+  useGetWidgets();
+
+  const { mutate: getProduct, data: product } = useGetOrCreateProduct();
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <h1>{product ? product.id : "no id yet"}</h1>
+
+      <button onClick={() => getProduct("w1")}>W1</button>
+      <button onClick={() => getProduct("g3")}>G3</button>
+      <button onClick={() => getProduct("w5")}>W5</button>
+      <button onClick={() => getProduct("g5")}>G5</button>
     </div>
   );
 }
