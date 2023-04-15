@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, QueryClient, useQueryClient } from "@tanstack/react-query";
 
-type Widget = { id: string; } // `w${number}` }
-type Gadget = { id: string; } // `g${number}` }
+type Widget = { id: `w${number}` }
+type Gadget = { id: `g${number}` }
+type Product = Widget | Gadget;
+type ProductId = Product["id"];
 
 function isWidgetId(id: string): id is Widget['id'] {
   return id.startsWith('w');
@@ -39,27 +41,21 @@ export function useGetGadgets() {
   });
 }
 
-function findById<T extends { id: string }>(collection: T[] | undefined, id: string): T | undefined {
-  if (collection) {
-    const item = collection.find(item => item.id === id);
-    if (item) {
-      return item;
-    }
-  }
-}
+function findOrCreate<P extends { id: ProductId }>(queryClient: ReturnType<typeof useQueryClient>, queryKey: string[]) {
+  const label = queryKey[0].slice(0, -1);
+  return async function(newItem: P) {
+    const items = queryClient.getQueryData<P[]>(queryKey);
 
-function findOrCreate<T extends { id: string }>(queryClient: ReturnType<typeof useQueryClient>, queryKey: string[]) {
-  return async function(newT: T) {
-    const item = findById(queryClient.getQueryData<T[]>(queryKey), newT.id);
-
-    const label = queryKey[0].slice(0, -1);
-    if (item) {
-      console.warn(`returning existing ${label}`);
-      return item;
+    if (items) {
+      const item = items.find(item => item.id === newItem.id);
+      if (item) {
+        console.warn(`returning existing ${label}`);
+        return item;
+      }
     }
 
     console.warn(`POSTing new ${label} to server`);
-    return newT;
+    return newItem;
   }
 }
 
@@ -72,8 +68,6 @@ export function usePostGadget() {
   const queryClient = useQueryClient();
   return useMutation(findOrCreate(queryClient, GADGET_KEY));
 }
-
-type Product = Widget | Gadget;
 
 export function useGetOrCreateProduct() {
   const [product, setProduct] = useState<Product | null>(null);
