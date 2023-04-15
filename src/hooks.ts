@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useMutation, useQuery, QueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, QueryClient, useQueryClient } from "@tanstack/react-query";
 
 type Widget = { id: `w${number}` }
 type Gadget = { id: `g${number}` }
@@ -8,9 +8,12 @@ function isWidgetId(id: string): id is Widget['id'] {
   return id.startsWith('w');
 }
 
+const WIDGET_KEY = ["widgets"];
+const GADGET_KEY = ["gadgets"];
+
 export function useGetWidgets() {
   return useQuery({
-    queryKey: ["widgets"],
+    queryKey: WIDGET_KEY,
     queryFn: async (): Promise<Widget[]> => {
       console.log('GETing widgets from server');
       return [
@@ -24,7 +27,7 @@ export function useGetWidgets() {
 
 export function useGetGadgets() {
   return useQuery({
-    queryKey: ["gadgets"],
+    queryKey: GADGET_KEY,
     queryFn: async (): Promise<Gadget[]> => {
       console.log('GETing gadgets from server');
       return [
@@ -37,16 +40,38 @@ export function useGetGadgets() {
 }
 
 export function usePostWidget() {
-  return useMutation(async function(widget: Widget) {
-    console.log('POSTing new widget to server');
-    return widget;
+  const queryClient = useQueryClient();
+  return useMutation(async function(newWidget: Widget) {
+    const widgets = queryClient.getQueryData<Widget[]>(WIDGET_KEY);
+
+    if (widgets) {
+      const widget = widgets.find(w => w.id === newWidget.id);
+      if (widget) {
+        console.warn('returning existing widget');
+        return widget;
+      }
+    }
+
+    console.warn('POSTing new widget to server');
+    return newWidget;
   });
 }
 
 export function usePostGadget() {
-  return useMutation(async function(gadget: Gadget) {
-    console.log('POSTing new gadget to server');
-    return gadget;
+  const queryClient = useQueryClient();
+  return useMutation(async function(newGadget: Gadget) {
+    const gadgets = queryClient.getQueryData<Gadget[]>(GADGET_KEY);
+
+    if (gadgets) {
+      const gadget = gadgets.find(w => w.id === newGadget.id);
+      if (gadget) {
+        console.warn('returning existing gadget');
+        return gadget;
+      }
+    }
+
+    console.warn('POSTing new gadget to server');
+    return newGadget;
   });
 }
 
@@ -54,9 +79,6 @@ type Product = Widget | Gadget;
 
 export function useGetOrCreateProduct() {
   const [product, setProduct] = useState<Product | null>(null);
-
-  const { data: widgets } = useGetWidgets();
-  const { data: gadgets } = useGetGadgets();
 
   const { mutate: createWidget, data: newWidget, reset: resetCreateWidget } = usePostWidget();
   const { mutate: createGadget, data: newGadget, reset: resetCreateGadget } = usePostGadget();
@@ -75,25 +97,7 @@ export function useGetOrCreateProduct() {
 
   return {
     mutate: (id: Widget["id"] | Gadget["id"]) => {
-      const isWidget = isWidgetId(id);
-
-      if (isWidget && widgets) {
-        const widget = widgets.find(w => w.id === id);
-        if (widget) {
-          setProduct(widget);
-          return;
-        }
-      }
-
-      if (!isWidget && gadgets) {
-        const gadget = gadgets.find(w => w.id === id);
-        if (gadget) {
-          setProduct(gadget);
-          return;
-        }
-      }
-
-      if (isWidget) {
+      if (isWidgetId(id)) {
         createWidget({ id });
       } else {
         createGadget({ id });
